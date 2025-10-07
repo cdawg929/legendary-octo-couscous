@@ -1,181 +1,45 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Under-$1 Universe (Pionex) + Bearish Ranking</title>
+name: Deploy PWA to GitHub Pages
 
-<!-- PWA meta -->
-<meta name="theme-color" content="#0f1220" />
-<link rel="manifest" href="./manifest.webmanifest" />
-<link rel="apple-touch-icon" href="./icons/icon-192.png" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Under $1 Universe" />
+on:
+  push:
+    branches: [ "main" ]   # change if your default branch is different
+  workflow_dispatch:
 
-<style>
-  :root { --bg:#0f1220; --card:#161a2b; --text:#e8ecff; --muted:#99a3c7; --accent:#6ea8fe; --good:#64d29b; --bad:#ff6b6b; }
-  html,body { margin:0; padding:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
-  header { padding:16px; border-bottom:1px solid #23284a; display:flex; flex-wrap:wrap; gap:12px; align-items:center; position:sticky; top:0; background:var(--bg); z-index:5; }
-  h1 { font-size:18px; margin:0; }
-  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
-  .card { background:var(--card); border:1px solid #23284a; border-radius:10px; padding:12px; margin:16px; }
-  label { display:block; color:var(--muted); font-size:12px; margin-bottom:4px; }
-  input, button { background:#0f1428; color:var(--text); border:1px solid #2a2f55; border-radius:8px; padding:8px 10px; outline:none; }
-  input[type="checkbox"] { width:auto; height:auto; }
-  button { cursor:pointer; }
-  button.primary { background:var(--accent); color:#0a1022; border-color:transparent; }
-  table { width:100%; border-collapse:collapse; margin-top:8px; }
-  th, td { padding:8px 6px; border-bottom:1px solid #23284a; text-align:left; font-variant-numeric:tabular-nums; }
-  th { color:var(--muted); font-weight:600; }
-  .pill { padding:2px 8px; border-radius:999px; font-size:12px; }
-  .ok { background:rgba(100,210,155,.12); color:var(--good); border:1px solid rgba(100,210,155,.35); }
-  .warn { background:rgba(255,107,107,.12); color:var(--bad); border:1px solid rgba(255,107,107,.35); }
-  .muted { color:var(--muted); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  .banner { padding:8px 12px; font-size:13px; background:#1b213d; color:#aab4e6; border-bottom:1px solid #2a2f55; }
-  .hide { display:none; }
-  footer { padding:12px 16px; color:var(--muted); }
-</style>
-</head>
-<body>
-  <div id="offlineBanner" class="banner hide">Offline mode: app shell loaded from cache. API calls will use local cache when possible.</div>
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-  <header class="row">
-    <h1>Under-$1 Universe (Pionex) + Bearish Ranking</h1>
-    <span id="status" class="muted"></span>
-  </header>
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
-  <section class="card">
-    <div class="grid">
-      <div>
-        <label>Min 24h Volume (USD)</label>
-        <input id="minVol" type="number" min="0" step="1000" value="0" />
-      </div>
-      <div>
-        <label>Prefer Cache if Fresh (minutes)</label>
-        <div class="row">
-          <input id="preferCacheMins" type="number" min="0" step="1" value="0" />
-          <label class="row" style="gap:8px;margin:0 0 0 8px;">
-            <input id="preferCacheToggle" type="checkbox" />
-            <span class="muted">Prefer Cache</span>
-          </label>
-        </div>
-        <div class="muted" id="cacheAgeTxt"></div>
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="btnFetch" class="primary">Fetch Universe</button>
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="btnExport">Export CSV</button>
-      </div>
-    </div>
-  </section>
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  <section class="card">
-    <div class="grid">
-      <div>
-        <label>Analyze Coin (BASE symbol, e.g. BONK)</label>
-        <div class="row">
-          <input id="analyzeBase" placeholder="BONK" />
-          <button id="btnAnalyze">Analyze</button>
-        </div>
-      </div>
-      <div>
-        <label>Rank Bearish Outbreak (Top N)</label>
-        <div class="row">
-          <input id="rankTopN" type="number" min="1" step="1" value="20" />
-          <input id="maxCoins" type="number" min="1" step="1" value="80" title="Max coins to evaluate" />
-          <input id="cgSleep" type="number" min="0" step="0.05" value="0.25" title="Delay between CoinGecko calls (s)" />
-          <button id="btnRank" class="warn">Rank</button>
-        </div>
-      </div>
-    </div>
-  </section>
+      # Enable & configure GitHub Pages for this repo (sets source = Actions)
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
-  <section class="card">
-    <h3 class="muted" style="margin:0 0 8px;">Universe</h3>
-    <div id="universeWrap">
-      <table id="tblUniverse">
-        <thead>
-          <tr>
-            <th>Pair</th>
-            <th>Base</th>
-            <th>Quote</th>
-            <th>Price (USD)</th>
-            <th>Vol 24h (USD)</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyUniverse"></tbody>
-      </table>
-      <div id="universeEmpty" class="muted">No data yet. Click “Fetch Universe”.</div>
-    </div>
-  </section>
+      # Upload your static site (repo root)
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
 
-  <section class="card">
-    <h3 class="muted" style="margin:0 0 8px;">Per-Coin Analysis</h3>
-    <pre id="analysis" class="mono muted" style="white-space:pre-wrap;">No analysis yet.</pre>
-  </section>
-
-  <section class="card">
-    <h3 class="muted" style="margin:0 0 8px;">Top Bearish Candidates</h3>
-    <div id="rankWrap">
-      <table id="tblRank">
-        <thead>
-          <tr>
-            <th>Base</th>
-            <th>Score</th>
-            <th>Last Close</th>
-            <th>RSI14</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyRank"></tbody>
-      </table>
-      <div id="rankEmpty" class="muted">No ranking yet. Click “Rank”.</div>
-    </div>
-  </section>
-
-  <footer>
-    Client-side PWA. Data from Pionex & CoinGecko. Indicators: SMA20/50, RSI14, MACD(12,26,9). Bearish scoring 0–10.
-  </footer>
-
-<script>
-/* ====== PWA bootstrap ====== */
-(function registerSW(){
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function(){
-      // register with a URL relative to this page (works under /<repo>/)
-      const swUrl = new URL('./sw.js', location.href);
-      navigator.serviceWorker.register(swUrl.href).catch(function(e){
-        console.warn('SW registration failed:', e);
-      });
-    });
-  }
-})();
-(function watchOnlineState(){
-  function refreshBanner(){
-    document.getElementById('offlineBanner').classList.toggle('hide', navigator.onLine);
-  }
-  window.addEventListener('online', refreshBanner);
-  window.addEventListener('offline', refreshBanner);
-  refreshBanner();
-})();
-
-/* ====== Config ====== */
-const PIONEX_URL = "https://api.pionex.com/api/v1/market/tickers";
-const CG_SEARCH_URL = "https://api.coingecko.com/api/v3/search";
-const CG_CHART_URL = (id) => `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`;
-
-const CACHE_KEY_DATA = "pio_cache_payload";
-const CACHE_KEY_MTIME = "pio_cache_mtime";
-
-/* ====== DOM ====== */
-const statusEl = document.getElementById("status");
-const minVolEl = document.getElementById("minVol");
-const preferCacheMinsEl = document.getElementById("preferCacheMins");
-const preferCacheToggleEl = document.getElementById("preferCacheToggle");
-const cacheAgeTxt = document.getElementById("cacheAgeTxt");
-const
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

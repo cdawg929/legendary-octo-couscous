@@ -1,36 +1,601 @@
-# This is a basic workflow to help you get started with Actions
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Under-$1 Universe (Pionex) + Bearish Ranking</title>
 
-name: CI
+<!-- PWA meta -->
+<meta name="theme-color" content="#0f1220" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Under $1 Universe" />
 
-# Controls when the workflow will run
-on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+<style>
+  :root { --bg:#0f1220; --card:#161a2b; --text:#e8ecff; --muted:#99a3c7; --accent:#6ea8fe; --good:#64d29b; --bad:#ff6b6b; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+  header { padding:16px; border-bottom:1px solid #23284a; display:flex; flex-wrap:wrap; gap:12px; align-items:center; position:sticky; top:0; background:var(--bg); z-index:5; }
+  h1 { font-size:18px; margin:0; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .card { background:var(--card); border:1px solid #23284a; border-radius:10px; padding:12px; margin:16px; }
+  label { display:block; color:var(--muted); font-size:12px; margin-bottom:4px; }
+  input, button { background:#0f1428; color:var(--text); border:1px solid #2a2f55; border-radius:8px; padding:8px 10px; outline:none; }
+  input[type="checkbox"] { width:auto; height:auto; }
+  button { cursor:pointer; }
+  button.primary { background:var(--accent); color:#0a1022; border-color:transparent; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th, td { padding:8px 6px; border-bottom:1px solid #23284a; text-align:left; font-variant-numeric:tabular-nums; }
+  th { color:var(--muted); font-weight:600; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:12px; }
+  .ok { background:rgba(100,210,155,.12); color:var(--good); border:1px solid rgba(100,210,155,.35); }
+  .warn { background:rgba(255,107,107,.12); color:var(--bad); border:1px solid rgba(255,107,107,.35); }
+  .muted { color:var(--muted); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .banner { padding:8px 12px; font-size:13px; background:#1b213d; color:#aab4e6; border-bottom:1px solid #2a2f55; }
+  .hide { display:none; }
+  footer { padding:12px 16px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div id="offlineBanner" class="banner hide">Offline mode: app shell loaded from cache. API calls will use local cache when possible.</div>
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+  <header class="row">
+    <h1>Under-$1 Universe (Pionex) + Bearish Ranking</h1>
+    <span id="status" class="muted"></span>
+  </header>
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+  <section class="card">
+    <div class="grid">
+      <div>
+        <label>Min 24h Volume (USD)</label>
+        <input id="minVol" type="number" min="0" step="1000" value="0" />
+      </div>
+      <div>
+        <label>Prefer Cache if Fresh (minutes)</label>
+        <div class="row">
+          <input id="preferCacheMins" type="number" min="0" step="1" value="0" />
+          <label class="row" style="gap:8px;margin:0 0 0 8px;">
+            <input id="preferCacheToggle" type="checkbox" />
+            <span class="muted">Prefer Cache</span>
+          </label>
+        </div>
+        <div class="muted" id="cacheAgeTxt"></div>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="btnFetch" class="primary">Fetch Universe</button>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <button id="btnExport">Export CSV</button>
+      </div>
+    </div>
+  </section>
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+  <section class="card">
+    <div class="grid">
+      <div>
+        <label>Analyze Coin (BASE symbol, e.g. BONK)</label>
+        <div class="row">
+          <input id="analyzeBase" placeholder="BONK" />
+          <button id="btnAnalyze">Analyze</button>
+        </div>
+      </div>
+      <div>
+        <label>Rank Bearish Outbreak (Top N)</label>
+        <div class="row">
+          <input id="rankTopN" type="number" min="1" step="1" value="20" />
+          <input id="maxCoins" type="number" min="1" step="1" value="80" title="Max coins to evaluate" />
+          <input id="cgSleep" type="number" min="0" step="0.05" value="0.25" title="Delay between CoinGecko calls (s)" />
+          <button id="btnRank" class="warn">Rank</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+  <section class="card">
+    <h3 class="muted" style="margin:0 0 8px;">Universe</h3>
+    <div id="universeWrap">
+      <table id="tblUniverse">
+        <thead>
+          <tr>
+            <th>Pair</th>
+            <th>Base</th>
+            <th>Quote</th>
+            <th>Price (USD)</th>
+            <th>Vol 24h (USD)</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyUniverse"></tbody>
+      </table>
+      <div id="universeEmpty" class="muted">No data yet. Click “Fetch Universe”.</div>
+    </div>
+  </section>
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+  <section class="card">
+    <h3 class="muted" style="margin:0 0 8px;">Per-Coin Analysis</h3>
+    <pre id="analysis" class="mono muted" style="white-space:pre-wrap;">No analysis yet.</pre>
+  </section>
+
+  <section class="card">
+    <h3 class="muted" style="margin:0 0 8px;">Top Bearish Candidates</h3>
+    <div id="rankWrap">
+      <table id="tblRank">
+        <thead>
+          <tr>
+            <th>Base</th>
+            <th>Score</th>
+            <th>Last Close</th>
+            <th>RSI14</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRank"></tbody>
+      </table>
+      <div id="rankEmpty" class="muted">No ranking yet. Click “Rank”.</div>
+    </div>
+  </section>
+
+  <footer>
+    Client-side PWA. Data from Pionex & CoinGecko. Indicators: SMA20/50, RSI14, MACD(12,26,9). Bearish scoring 0–10.
+  </footer>
+
+<script>
+/* ====== PWA bootstrap ====== */
+(function registerSW(){
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      // Register with a URL relative to this page (works on /<repo>/)
+      const swUrl = new URL('./sw.js', location.href);
+      navigator.serviceWorker.register(swUrl.href).catch(function(e){
+        console.warn('SW registration failed:', e);
+      });
+    });
+  }
+})();
+(function watchOnlineState(){
+  function refreshBanner(){
+    document.getElementById('offlineBanner').classList.toggle('hide', navigator.onLine);
+  }
+  window.addEventListener('online', refreshBanner);
+  window.addEventListener('offline', refreshBanner);
+  refreshBanner();
+})();
+
+/* ====== Config ====== */
+const PIONEX_URL = "https://api.pionex.com/api/v1/market/tickers";
+const CG_SEARCH_URL = "https://api.coingecko.com/api/v3/search";
+const CG_CHART_URL = (id) => `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`;
+
+const CACHE_KEY_DATA = "pio_cache_payload";
+const CACHE_KEY_MTIME = "pio_cache_mtime";
+
+/* ====== DOM ====== */
+const statusEl = document.getElementById("status");
+const minVolEl = document.getElementById("minVol");
+const preferCacheMinsEl = document.getElementById("preferCacheMins");
+const preferCacheToggleEl = document.getElementById("preferCacheToggle");
+const cacheAgeTxt = document.getElementById("cacheAgeTxt");
+const btnFetch = document.getElementById("btnFetch");
+const btnExport = document.getElementById("btnExport");
+const tbodyUniverse = document.getElementById("tbodyUniverse");
+const universeEmpty = document.getElementById("universeEmpty");
+
+const analyzeBaseEl = document.getElementById("analyzeBase");
+const btnAnalyze = document.getElementById("btnAnalyze");
+const analysisPre = document.getElementById("analysis");
+
+const rankTopNEl = document.getElementById("rankTopN");
+const maxCoinsEl = document.getElementById("maxCoins");
+const cgSleepEl = document.getElementById("cgSleep");
+const btnRank = document.getElementById("btnRank");
+const tbodyRank = document.getElementById("tbodyRank");
+const rankEmpty = document.getElementById("rankEmpty");
+
+/* ====== Utils ====== */
+function fmtNum(n, d=8) { return typeof n === "number" ? n.toFixed(d) : "-"; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function setStatus(text){ statusEl.textContent = text || ""; }
+function setCache(payload){
+  localStorage.setItem(CACHE_KEY_DATA, JSON.stringify(payload));
+  localStorage.setItem(CACHE_KEY_MTIME, String(Date.now()));
+  updateCacheAge();
+}
+function getCache() {
+  const raw = localStorage.getItem(CACHE_KEY_DATA);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+function cacheAgeMinutes(){
+  const m = Number(localStorage.getItem(CACHE_KEY_MTIME) || 0);
+  if (!m) return null;
+  return (Date.now() - m) / 60000;
+}
+function updateCacheAge(){
+  const age = cacheAgeMinutes();
+  cacheAgeTxt.textContent = age == null ? "Cache: empty" : `Cache age: ${age.toFixed(1)} min`;
+}
+
+/* ====== Indicators ====== */
+function sma(series, n){
+  const out = new Array(series.length).fill(null);
+  if (n <= 0 || series.length < n) return out;
+  let s = 0;
+  for (let i=0;i<series.length;i++){
+    s += series[i];
+    if (i >= n) s -= series[i-n];
+    if (i >= n-1) out[i] = s / n;
+  }
+  return out;
+}
+function rsi(series, n=14){
+  const out = new Array(series.length).fill(null);
+  if (series.length < n+1) return out;
+  const gains=[0], losses=[0];
+  for (let i=1;i<series.length;i++){
+    const ch = series[i] - series[i-1];
+    gains.push(Math.max(ch,0));
+    losses.push(Math.max(-ch,0));
+  }
+  let ag = gains.slice(1,n+1).reduce((a,b)=>a+b,0)/n;
+  let al = losses.slice(1,n+1).reduce((a,b)=>a+b,0)/n;
+  for (let i=n;i<series.length;i++){
+    if (i>n){
+      ag = (ag*(n-1) + gains[i]) / n;
+      al = (al*(n-1) + losses[i]) / n;
+    }
+    out[i] = (al===0) ? 100 : (100 - 100/(1 + ag/al));
+  }
+  return out;
+}
+function ema(series, n){
+  const out = new Array(series.length).fill(null);
+  if (n<=0 || !series.length) return out;
+  const k = 2/(n+1);
+  let prev = null;
+  for (let i=0;i<series.length;i++){
+    const v = series[i];
+    if (v==null) { out[i]=null; continue; }
+    prev = prev==null ? v : v*k + prev*(1-k);
+    out[i] = prev;
+  }
+  return out;
+}
+function macd(series, fast=12, slow=26, signal=9){
+  if (series.length < slow + signal) {
+    return [new Array(series.length).fill(null), new Array(series.length).fill(null), new Array(series.length).fill(null)];
+  }
+  const ef = ema(series, fast);
+  const es = ema(series, slow);
+  const macdLine = series.map((_,i)=>{
+    if (ef[i]==null || es[i]==null) return null;
+    return ef[i]-es[i];
+  });
+  const sig = ema(macdLine.map(x=>x==null?0:x), signal);
+  const hist = macdLine.map((m,i)=> (m==null||sig[i]==null)?null:(m-sig[i]));
+  return [macdLine, sig, hist];
+}
+function crossedUp(a,b){
+  const n = a.length;
+  if (n<2 || b.length<2) return false;
+  const a1=a[n-2], b1=b[b.length-2], a0=a[n-1], b0=b[b.length-1];
+  if (a1==null || b1==null || a0==null || b0==null) return false;
+  return a1<=b1 && a0>b0;
+}
+function crossedDown(a,b){
+  const n = a.length;
+  if (n<2 || b.length<2) return false;
+  const a1=a[n-2], b1=b[b.length-2], a0=a[n-1], b0=b[b.length-1];
+  if (a1==null || b1==null || a0==null || b0==null) return false;
+  return a1>=b1 && a0<b0;
+}
+function bearishScore(prices, s20, s50, r14, mLine, sLine){
+  let score=0;
+  if (crossedDown(mLine, sLine)) score+=2;
+  if (mLine.at(-1)!=null && sLine.at(-1)!=null && mLine.at(-1)<sLine.at(-1)) score+=1;
+  if (crossedDown(s20, s50)) score+=2;
+  if (s20.at(-1)!=null && s50.at(-1)!=null && s20.at(-1)<s50.at(-1)) score+=1;
+  if (prices.at(-1)!=null && s20.at(-1)!=null && prices.at(-1)<s20.at(-1)) score+=1;
+  if (prices.at(-1)!=null && s50.at(-1)!=null && prices.at(-1)<s50.at(-1)) score+=1;
+  if (r14.at(-1)!=null && r14.at(-1)>70) score+=1;
+  if (score>10) score=10;
+  if (score<0) score=0;
+  return score;
+}
+
+/* ====== Data shaping ====== */
+function normalizePayload(payload){
+  let data = payload && payload.data ? payload.data :
+             payload && payload.tickers ? payload.tickers :
+             payload && payload.result ? payload.result :
+             payload;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    for (const k of ["list","items","tickers","symbols","data"]) {
+      if (Array.isArray(data[k])) { data = data[k]; break; }
+    }
+  }
+  if (!Array.isArray(data)) return [];
+  const out = [];
+  for (const item of data){
+    let t = item;
+    if (typeof t === "string") {
+      try { t = JSON.parse(t); } catch(e) { continue; }
+    }
+    if (t && typeof t === "object") out.push(t);
+  }
+  return out;
+}
+function coerceFloat(x){
+  const n = Number(x);
+  if (Number.isFinite(n)) return n;
+  const m = Number(String(x));
+  return Number.isFinite(m) ? m : NaN;
+}
+function buildUniverse(items, minVol){
+  const res = [];
+  for (const t of items){
+    if (!t || typeof t!=="object") continue;
+    const symbol = t.symbol || t.s || "";
+    let base = t.base, quote = t.quote;
+    if ((!base || !quote) && symbol.includes("_")){
+      const [b,q] = symbol.split("_",2);
+      base = base||b; quote = quote||q;
+    }
+    const last = t.last ?? t.close ?? t.c ?? t.price ?? t.lastPrice;
+    if (last==null) continue;
+    const price = coerceFloat(last);
+    let volUsd = t.volUsd ?? t.volumeUsd ?? t.qv ?? t.quoteVolume ?? t.vol ?? 0;
+    volUsd = coerceFloat(volUsd);
+    if (quote==="USDT" && price < 1 && (isNaN(minVol)?true:volUsd>=minVol)) {
+      res.push({
+        symbol_pair: symbol || (base && quote ? `${base}_${quote}` : ""),
+        base, quote, price_usd: price, pionex_volume24h_usd: volUsd
+      });
+    }
+  }
+  return res;
+}
+
+/* ====== API calls ====== */
+async function fetchPionex(preferCacheMins, preferCacheToggle){
+  const age = cacheAgeMinutes();
+  if (preferCacheToggle && preferCacheMins>0 && age!=null && age <= preferCacheMins) {
+    setStatus(`Using cached Pionex (age ${age.toFixed(1)} min)`);
+    const cached = getCache();
+    if (cached) return cached;
+  }
+  setStatus("Fetching Pionex tickers…");
+  try{
+    const r = await fetch("https://api.pionex.com/api/v1/market/tickers", { headers: { "User-Agent":"web-universe/1.0" } });
+    if (!r.ok) throw new Error("HTTP "+r.status);
+    const payload = await r.json();
+    setCache(payload);
+    setStatus("Pionex OK.");
+    return payload;
+  }catch(e){
+    console.warn("Network error:", e);
+    const cached = getCache();
+    if (cached) {
+      setStatus("Network failed; using cached Pionex.");
+      return cached;
+    }
+    setStatus("Network failed; no cache.");
+    throw e;
+  }
+}
+async function cgSearchSymbol(symbol){
+  const r = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(symbol)}`);
+  if (!r.ok) throw new Error("CG search HTTP "+r.status);
+  const data = await r.json();
+  const coins = (data && data.coins) || [];
+  const hit = coins.find(c => (c.symbol||"").toLowerCase() === symbol.toLowerCase()) || coins[0];
+  return hit ? hit.id : "";
+}
+async function cgDailyCloses(id){
+  const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=90&interval=daily`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("CG chart HTTP "+r.status);
+  const data = await r.json();
+  const prices = (data && data.prices) || [];
+  const closes = [];
+  for (const p of prices){
+    if (Array.isArray(p) && p.length>=2){
+      const val = coerceFloat(p[1]);
+      if (!Number.isNaN(val)) closes.push(val);
+    }
+  }
+  return closes;
+}
+
+/* ====== UI actions ====== */
+async function doFetch(){
+  try{
+    const minVol = Number(minVolEl.value||0);
+    const preferCacheMins = Number(preferCacheMinsEl.value||0);
+    const preferCacheToggle = !!preferCacheToggleEl.checked;
+    updateCacheAge();
+
+    const payload = await fetchPionex(preferCacheMins, preferCacheToggle);
+    const items = normalizePayload(payload);
+    const uni = buildUniverse(items, minVol);
+
+    tbodyUniverse.innerHTML = "";
+    if (uni.length===0){ universeEmpty.style.display="block"; }
+    else { universeEmpty.style.display="none"; }
+    for (const r of uni){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="mono">${r.symbol_pair}</td>
+        <td>${r.base||""}</td>
+        <td>${r.quote||""}</td>
+        <td class="mono">${fmtNum(r.price_usd, 8)}</td>
+        <td class="mono">${fmtNum(r.pionex_volume24h_usd, 2)}</td>
+      `;
+      tbodyUniverse.appendChild(tr);
+    }
+
+    window.__universe = uni;
+    setStatus(`Universe: ${uni.length} markets`);
+  }catch(e){
+    setStatus("Fetch failed.");
+  }
+}
+
+function exportCSV(rows){
+  if (!rows || !rows.length) return;
+  const headers = ["symbol_pair","base","quote","price_usd","pionex_volume24h_usd"];
+  const lines = [headers.join(",")];
+  for (const r of rows){
+    lines.push([
+      r.symbol_pair, r.base, r.quote,
+      (r.price_usd ?? ""), (r.pionex_volume24h_usd ?? "")
+    ].join(","));
+  }
+  const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "under1_universe.csv";
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(a.href);
+  a.remove();
+}
+
+async function doAnalyze(){
+  const sym = (analyzeBaseEl.value||"").trim();
+  if (!sym){ analysisPre.textContent = "Enter a base symbol (e.g., BONK)."; return; }
+  analysisPre.textContent = "Resolving symbol on CoinGecko…";
+  try{
+    const id = await cgSearchSymbol(sym);
+    if (!id){ analysisPre.textContent = "No matching coin found on CoinGecko."; return; }
+    const closes = await cgDailyCloses(id);
+    if (closes.length < 50){ analysisPre.textContent = "Not enough daily closes (need >= 50)."; return; }
+
+    const s20 = sma(closes, 20);
+    const s50 = sma(closes, 50);
+    const r14 = rsi(closes, 14);
+    const [mLine, sLine] = macd(closes, 12, 26, 9);
+    const score = bearishScore(closes, s20, s50, r14, mLine, sLine);
+
+    const last = closes.at(-1);
+    const lines = [];
+    lines.push(`=== Analysis for ${sym} ===`);
+    lines.push(`Last close: ${last}`);
+    if (s20.at(-1)!=null) lines.push(`SMA20: ${s20.at(-1)}`);
+    if (s50.at(-1)!=null) lines.push(`SMA50: ${s50.at(-1)}`);
+    if (r14.at(-1)!=null) lines.push(`RSI14: ${r14.at(-1).toFixed(2)}`);
+
+    const bullish=[], bearish=[];
+    if (s20.at(-1)!=null && s50.at(-1)!=null){
+      if (s20.at(-1) > s50.at(-1)) bullish.push("SMA20 above SMA50 (uptrend bias)");
+      else bearish.push("SMA20 below SMA50 (downtrend bias)");
+      if (crossedUp(s20, s50)) bullish.push("Golden cross: SMA20 crossed above SMA50");
+      if (crossedDown(s20, s50)) bearish.push("Death cross: SMA20 crossed below SMA50");
+    }
+    if (last!=null && s20.at(-1)!=null){
+      if (last > s20.at(-1)) bullish.push("Price above SMA20 (near-term strength)");
+      else bearish.push("Price below SMA20 (near-term weakness)");
+    }
+    if (last!=null && s50.at(-1)!=null){
+      if (last > s50.at(-1)) bullish.push("Price above SMA50 (medium-term strength)");
+      else bearish.push("Price below SMA50 (medium-term weakness)");
+    }
+    if (r14.at(-1)!=null){
+      if (r14.at(-1) < 30) bullish.push("RSI < 30 (potentially oversold)");
+      else if (r14.at(-1) > 70) bearish.push("RSI > 70 (potentially overbought)");
+    }
+    if (crossedUp(mLine, sLine)) bullish.push("MACD crossed above signal (momentum improving)");
+    if (crossedDown(mLine, sLine)) bearish.push("MACD crossed below signal (momentum weakening)");
+
+    lines.push("");
+    lines.push("Bearish risk score (0-10): " + score);
+    lines.push("");
+    lines.push("Bullish signals:");
+    lines.push(bullish.length ? bullish.map(s=>" - "+s).join("\n") : " - None");
+    lines.push("Bearish signals:");
+    lines.push(bearish.length ? bearish.map(s=>" - "+s).join("\n") : " - None");
+
+    lines.push("");
+    lines.push("Last 10 daily closes:");
+    const tail = closes.slice(-10);
+    tail.forEach((v, i) => lines.push(` ${closes.length - tail.length + i}: ${v}`));
+
+    analysisPre.textContent = lines.join("\n");
+  }catch(e){
+    analysisPre.textContent = "Analysis failed: "+ (e && e.message ? e.message : String(e));
+  }
+}
+
+async function doRank(){
+  const uni = window.__universe || [];
+  if (!uni.length){ rankEmpty.textContent = "Universe empty. Fetch first."; return; }
+  tbodyRank.innerHTML = ""; rankEmpty.style.display="block";
+
+  const topN = Math.max(1, Number(rankTopNEl.value||20));
+  const maxCoins = Math.max(1, Number(maxCoinsEl.value||80));
+  const cgSleep = Math.max(0, Number(cgSleepEl.value||0.25));
+
+  const seen = new Set();
+  const bases = [];
+  for (const r of uni){
+    const b = (r.base||"").toUpperCase();
+    if (b && !seen.has(b)){ seen.add(b); bases.push(b); }
+    if (bases.length >= maxCoins) break;
+  }
+
+  const results = [];
+  for (let i=0; i<bases.length; i++){
+    const base = bases[i];
+    setStatus(`Ranking ${i+1}/${bases.length}… ${base}`);
+    try{
+      const id = await cgSearchSymbol(base);
+      if (!id) { console.warn("No CG id for", base); continue; }
+      const closes = await cgDailyCloses(id);
+      if (closes.length < 50) { console.warn("Not enough closes for", base); continue; }
+      const s20 = sma(closes, 20);
+      const s50 = sma(closes, 50);
+      const r14 = rsi(closes, 14);
+      const [mLine, sLine] = macd(closes, 12, 26, 9);
+      const score = bearishScore(closes, s20, s50, r14, mLine, sLine);
+      results.push({ base, score, price: closes.at(-1), rsi14: r14.at(-1) });
+      if (cgSleep>0) await sleep(cgSleep*1000);
+    }catch(e){
+      console.warn("Rank error for", base, e);
+    }
+  }
+  results.sort((a,b)=>{
+    const s = b.score - a.score;
+    if (s) return s;
+    const rA = (typeof a.rsi14==="number") ? a.rsi14 : -1;
+    const rB = (typeof b.rsi14==="number") ? b.rsi14 : -1;
+    return rB - rA;
+  });
+  const top = results.slice(0, topN);
+
+  tbodyRank.innerHTML = "";
+  if (top.length){ rankEmpty.style.display="none"; }
+  for (const row of top){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.base}</td>
+      <td><span class="pill ${row.score>=7?'warn':'ok'}">${row.score}</span></td>
+      <td class="mono">${fmtNum(row.price, 8)}</td>
+      <td class="mono">${row.rsi14!=null ? row.rsi14.toFixed(2) : "-"}</td>
+    `;
+    tbodyRank.appendChild(tr);
+  }
+  setStatus(`Ranked ${top.length} of ${results.length} candidates.`);
+}
+
+/* ====== Wire up ====== */
+document.getElementById("btnFetch").addEventListener("click", doFetch);
+document.getElementById("btnExport").addEventListener("click", ()=> exportCSV(window.__universe||[]));
+document.getElementById("btnAnalyze").addEventListener("click", doAnalyze);
+document.getElementById("btnRank").addEventListener("click", doRank);
+updateCacheAge();
+</script>
+</body>
+</html>

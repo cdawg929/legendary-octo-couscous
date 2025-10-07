@@ -21,17 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Enable & configure GitHub Pages for this repo (sets source = Actions)
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      # If you generate files, build, etc. do it here.
+      # For a static site, we just upload the repo as-is.
 
-      # Upload your static site (repo root)
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "."     # upload everything in repo root
 
   deploy:
     needs: build

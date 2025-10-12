@@ -1,0 +1,4 @@
+permissions:
+  contents: write    # change from 'read' to 'write'
+  pages: write
+  id-token: write
